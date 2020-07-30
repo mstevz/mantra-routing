@@ -1,0 +1,10 @@
+
+
+PROBLEM:
+    Cannot find route based on a URI resource.
+        -RouteIdentifier cannot generate a id based on route regular exp pattern.
+        
+
+
+Try:
+    - From Request variable, check method compatibilty & attempt to match with first valid regex.

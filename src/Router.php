@@ -4,7 +4,7 @@ namespace Mantra\Routing;
 
 use Mantra\Routing\Interfaces\IRouter;
 use Mantra\Routing\RouteResolver;
-use mstevz\collection\Dictionary;
+use mstevz\collection\{Dictionary, ArrayList};
 
 class Router implements IRouter {
 
@@ -15,8 +15,19 @@ class Router implements IRouter {
      */
     private $_routes;
 
+    private $_availableVerbs;
+
     public function __construct(){
         $this->_routes = new Dictionary();
+
+        $this->addVerb('GET');
+        $this->addVerb('POST');
+        $this->addVerb('PUT');
+        $this->addVerb('DELETE');
+    }
+
+    private function addVerb(string $verb){
+        $this->_routes->add($verb, new ArrayList('object'));
     }
 
     /**
@@ -28,7 +39,9 @@ class Router implements IRouter {
      */
     public function map(string $method, string $urlPattern, $handler){
         $route = new Route($method, $urlPattern, new RouteResolver($handler));
-        $this->_routes->add($route->getIdentity(), $route);
+
+        $this->_routes->get($method)
+                      ->add($route);
     }
 
     /**
@@ -38,7 +51,7 @@ class Router implements IRouter {
      * @return [type]             [description]
      */
     public function get(string $urlPattern, $handler){
-        $this->map('get', $urlPattern, $handler);
+        $this->map('GET', $urlPattern, $handler);
     }
 
     /**
@@ -48,7 +61,7 @@ class Router implements IRouter {
      * @return [type]             [description]
      */
     public function post(string $urlPattern, $handler){
-        $this->map('post', $urlPattern, $handler);
+        $this->map('POST', $urlPattern, $handler);
     }
 
     /**
@@ -58,7 +71,7 @@ class Router implements IRouter {
      * @return [type]             [description]
      */
     public function put(string $urlPattern, $handler){
-        $this->map('put', $urlPattern, $handler);
+        $this->map('PUT', $urlPattern, $handler);
     }
 
     /**
@@ -68,7 +81,7 @@ class Router implements IRouter {
      * @return [type]             [description]
      */
     public function delete(string $urlPattern, $handler){
-        $this->map('delete', $urlPattern, $handler);
+        $this->map('DELETE', $urlPattern, $handler);
     }
 
     /**
@@ -88,7 +101,7 @@ class Router implements IRouter {
         return $this->_routes->find($callback);
     }
 
-    public function getRoutes() : Collection {
+    public function getRoutes() : Iterable {
         return $this->_routes;
     }
 

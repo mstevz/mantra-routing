@@ -5,6 +5,10 @@ namespace Mantra\Routing;
 use Mantra\Routing\Interfaces\IRouter;
 use Mantra\Routing\RouteIdentifier;
 use Mantra\Routing\Exceptions\RouteNotFoundException;
+use Mantra\Routing\Http\Environment;
+use Mantra\Routing\Route;
+
+use Psr\Http\Message\RequestInterface as IRequest;
 
 class Dispatcher {
 
@@ -19,32 +23,46 @@ class Dispatcher {
     }
 
     /**
-     * Returns an Annonymous Function that will be used as callback to find route.
-     * @param  $request [description]
-     * @return [type]   [description]
+     * Attempts to match requested Uri string with available routes.
+     * @param  $routes [description]
+     * @param  $candidateUri [Requested Uri string]
+     * @return null|Route
      */
-    private function findRouteCallback($request) {
-        return function($id, $route) use ($request){
-            return (RouteIdentifier::getIdentityFromUri($request) == $route->getIdentity());
-        };
+    private function findRoute(object $routes, string $candidateUri) : ?Route {
+        $result = null;
+
+        foreach($routes as $route) {
+            $matches = [];
+            $pattern = $route->getPattern();
+
+            preg_match("#^($pattern)$#", $candidateUri, $matches);
+
+            if($matches){
+                $result = $route;
+                break;
+            }
+        }
+
+        return $result;
     }
 
-    public function dispatch($request){
+    public function dispatch(IRequest $request) : Route {
+        $routes = $this->router->getRoutes()[$request->getMethod()];
 
-        var_dump($request);
-        $route = $this->router->find($this->findRouteCallback($request));
-
+        $route = $this->findRoute($routes, $request->getUri()->getPath());
 
         try{
-            if(!$route) throw new RouteNotFoundException($request);
-
-            $route();
+            if(!$route){
+                http_response_code(404);  // define header elsewhere!
+                throw new RouteNotFoundException($request->getUri()->getPath());
+            }
         }
         catch(\Exception $e){
-            // not found
-            //echo "<h1>404</h1> <h2>Details</h2> <b>Requested</b>: {$e->getMessage()} </br> <b>Status Code</b>: 404 </br> <b>Status Message</b>: Not Found.";
             echo $e->getMessage();
+            exit;
         }
+
+        return $route;
 
     }
 
