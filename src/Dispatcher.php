@@ -24,37 +24,39 @@ class Dispatcher {
 
     /**
      * Attempts to match requested Uri string with available routes.
-     * @param  $routes [description]
-     * @param  $candidateUri [Requested Uri string]
-     * @return null|Route
+     * @param  iterable $routes Iterable container with objects of type 'Route'.
+     * @param  string   $path   Requested Uri path.
+     * @return null|Route        [description]
      */
-    private function findRoute(object $routes, string $candidateUri) : ?Route {
-        $result = null;
+    private function match(iterable $routes, string $path) : ?Route {
+        $route = null;
 
-        foreach($routes as $route) {
+        foreach($routes as $candidate) {
             $matches = [];
-            $pattern = $route->getPattern();
+            $pattern = $candidate->getPattern();
 
-            preg_match("#^($pattern)$#", $candidateUri, $matches);
+            preg_match("#^($pattern)$#", $path, $matches);
 
             if($matches){
-                $result = $route;
+                $route = $candidate;
                 break;
             }
         }
 
-        return $result;
+        return $route;
     }
 
     public function dispatch(IRequest $request) : Route {
-        $routes = $this->router->getRoutes()[$request->getMethod()];
+        $method = $request->getMethod();
+        $path   = $request->getUri()->getPath();
 
-        $route = $this->findRoute($routes, $request->getUri()->getPath());
+        $possibleRoutes = $this->router->getRoutes($method);
+        $route          = $this->match($possibleRoutes, $path);
 
         try{
             if(!$route){
                 http_response_code(404);  // define header elsewhere!
-                throw new RouteNotFoundException($request->getUri()->getPath());
+                throw new RouteNotFoundException($path);
             }
         }
         catch(\Exception $e){
