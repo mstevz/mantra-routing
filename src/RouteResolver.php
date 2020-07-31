@@ -7,15 +7,15 @@ use Mantra\Routing\ControllerParser;
 class RouteResolver {
 
     protected $value;
-    private $_parser;
+    private $parser;
 
     public function __construct($value){
         $this->value = $value;
-        $this->_parser = new ControllerParser($value);
+        $this->parser = new ControllerParser($value);
     }
 
     public function getParser() : ControllerParser {
-        return $this->_parser;
+        return $this->parser;
     }
 
     public function getValue() {

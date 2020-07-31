@@ -4,21 +4,21 @@ namespace Mantra\Routing;
 
 class ControllerParser {
 
-    private $_namespace;
-    private $_className;
-    private $_method;
+    private $namespace;
+    private $className;
+    private $method;
 
     /**
      * [__construct description]
      * @param [type] $handler [description]
      */
     public function __construct($handler){
-        $this->_namespace = null;
-        $this->_className = null;
-        $this->_method    = null;
-        $this->_callable  = null;
+        $this->namespace = null;
+        $this->className = null;
+        $this->method    = null;
+        $this->callable  = null;
 
-        $this->_isCallable = false;
+        $this->isCallable = false;
 
         $this->parse($handler);
     }
@@ -37,27 +37,27 @@ class ControllerParser {
 
         $fragments = explode('@', $value);
 
-        $this->_namespace = $fragments[0];
-        $this->_method = $fragments[1];
+        $this->namespace = $fragments[0];
+        $this->method = $fragments[1];
 
-        $namespaceFragments = explode('\\', $this->_namespace);
+        $namespaceFragments = explode('\\', $this->namespace);
 
-        $this->_className = array_pop($namespaceFragments);
+        $this->className = array_pop($namespaceFragments);
 
     }
 
     public function getNamespace() {
-        return $this->_namespace;
+        return $this->namespace;
     }
 
     public function getClassName() {
-        return $this->_className;
+        return $this->className;
     }
 
     public function invokeControllerMethod(){
-        $controller = new $this->_namespace;
+        $controller = new $this->namespace;
 
-        $controller->{$this->_method}();
+        $controller->{$this->method}();
     }
 
 }

@@ -13,12 +13,10 @@ class Router implements IRouter {
      * @see mstevz\Collection
      * @var Collection
      */
-    private $_routes;
-
-    private $_availableVerbs;
+    private $routes;
 
     public function __construct(){
-        $this->_routes = new Dictionary();
+        $this->routes = new Dictionary();
 
         $this->addVerb('GET');
         $this->addVerb('POST');
@@ -27,7 +25,7 @@ class Router implements IRouter {
     }
 
     private function addVerb(string $verb){
-        $this->_routes->add($verb, new ArrayList('object'));
+        $this->routes->add($verb, new ArrayList('object'));
     }
 
     /**
@@ -40,7 +38,7 @@ class Router implements IRouter {
     public function map(string $method, string $urlPattern, $handler){
         $route = new Route($method, $urlPattern, new RouteResolver($handler));
 
-        $this->_routes->get($method)
+        $this->routes->get($method)
                       ->add($route);
     }
 
@@ -98,11 +96,11 @@ class Router implements IRouter {
     }
 
     public function find(callable $callback) {
-        return $this->_routes->find($callback);
+        return $this->routes->find($callback);
     }
 
     public function getRoutes() : Iterable {
-        return $this->_routes;
+        return $this->routes;
     }
 
 }
