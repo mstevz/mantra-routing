@@ -15,17 +15,30 @@ class Router implements IRouter {
      */
     private $routes;
 
+    /**
+     * Available HTTP Methods/Verbs
+     * @var array
+     */
+    const AVAILABLE_HTTP_VERB = ['GET', 'POST', 'PUT', 'DELETE'];
+
     public function __construct(){
         $this->routes = new Dictionary();
 
-        $this->addVerb('GET');
-        $this->addVerb('POST');
-        $this->addVerb('PUT');
-        $this->addVerb('DELETE');
+        foreach(self::AVAILABLE_HTTP_VERB as $verb){
+            $this->addHttpVerb($verb);
+        }
     }
 
-    private function addVerb(string $verb){
+    /**
+     * Add new HTTP Method/Verb to router collection.
+     * @param string $method HTTP Method/Verb name
+     */
+    private function addHttpVerb(string $verb){
         $this->routes->add($verb, new ArrayList('object'));
+    }
+
+    public function isHttpVerbAvailable(string $verb){
+        return in_array(strtoupper($verb), self::AVAILABLE_HTTP_VERB);
     }
 
     /**
@@ -35,11 +48,11 @@ class Router implements IRouter {
      * @param  [type] $handler     Route operation handler
      * @return [type]             [description]
      */
-    public function map(string $method, string $urlPattern, $handler){
-        $route = new Route($method, $urlPattern, new RouteResolver($handler));
+    public function map(string $verb, string $urlPattern, $handler){
+        $route = new Route($verb, $urlPattern, new RouteResolver($handler));
 
-        $this->routes->get($method)
-                      ->add($route);
+        $this->routes->get($verb)
+                     ->add($route);
     }
 
     /**
@@ -95,12 +108,22 @@ class Router implements IRouter {
         $this->delete($urlPattern, $handler);
     }
 
-    public function find(callable $callback) {
-        return $this->routes->find($callback);
-    }
+    public function getRoutes($verb = null) : Iterable {
 
-    public function getRoutes() : Iterable {
-        return $this->routes;
+        $routeList = null;
+
+        if($verb){
+            if(!$this->isHttpVerbAvailable($verb)){
+                throw new \InvalidArgumentException("Given HTTP Method/Verb \"{$verb}\" is unknown or unavailable.");
+            }
+
+            $routeList = $this->routes->get(strtoupper($verb));
+        }
+        else {
+            $routeList = $this->routes;
+        }
+
+        return clone $routeList;
     }
 
 }
