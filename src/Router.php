@@ -1,129 +1,143 @@
 <?php
-
 namespace Mantra\Routing;
 
-use Mantra\Routing\Interfaces\IRouter;
-use Mantra\Routing\RouteResolver;
-use mstevz\collection\{Dictionary, ArrayList};
+use \ReflectionClass;
+use Mantra\Routing\Attributes\{Route, Get, Post, Put, Delete};
 
-class Router implements IRouter {
+class Router {
 
-    /**
-     * Application Route Collection
-     * @see mstevz\Collection
-     * @var Collection
-     */
-    private $routes;
+    private string $baseUri = '';
 
-    /**
-     * Available HTTP Methods/Verbs
-     * @var array
-     */
-    const AVAILABLE_HTTP_VERB = ['GET', 'POST', 'PUT', 'DELETE'];
+    private array $routes = [];
 
-    public function __construct(){
-        $this->routes = new Dictionary();
+    public function __construct(){ }
 
-        foreach(self::AVAILABLE_HTTP_VERB as $verb){
-            $this->addHttpVerb($verb);
-        }
+    public function setBaseUri(string $value) : void {
+        $this->baseUri = $value;
     }
 
-    /**
-     * Add new HTTP Method/Verb to router collection.
-     * @param string $method HTTP Method/Verb name
-     */
-    private function addHttpVerb(string $verb){
-        $this->routes->add($verb, new ArrayList('object'));
-    }
+    public function dispatch(string $method, string $uri, array $params){
 
-    public function isHttpVerbAvailable(string $verb){
-        return in_array(strtoupper($verb), self::AVAILABLE_HTTP_VERB);
-    }
+        // handle middleware here
 
-    /**
-     * Maps any kind of Route with specified urlPattern to specific operation handler.
-     * @param  string $method      Http Verb
-     * @param  string $urlPattern  Router link pattern
-     * @param  [type] $handler     Route operation handler
-     * @return [type]             [description]
-     */
-    public function map(string $verb, string $urlPattern, $handler){
-        $route = new Route($verb, $urlPattern, new RouteResolver($handler));
+        foreach($this->routes[strtolower($method)] as $pattern => $controllerMeta){
 
-        $this->routes->get($verb)
-                     ->add($route);
-    }
+            $matches;
+            if(preg_match_all($pattern , $uri, $matches, \PREG_PATTERN_ORDER)){
 
-    /**
-     * Creates a new GET rest request Route.
-     * @param  string $urlPattern  Router link pattern
-     * @param  [type] $handler     Route operation handler
-     * @return [type]             [description]
-     */
-    public function get(string $urlPattern, $handler){
-        $this->map('GET', $urlPattern, $handler);
-    }
+                $handler = explode('@', $controllerMeta['handler']);
+        
+                $controller = array_shift($handler);
+                $method = array_pop($handler);
+                
+                $ref = new \ReflectionMethod($controller, $method);
+                
+                array_shift($matches);
 
-    /**
-     * Creates a new POST rest request Route.
-     * @param  string $urlPattern  Router link pattern
-     * @param  [type] $handler     Route operation handler
-     * @return [type]             [description]
-     */
-    public function post(string $urlPattern, $handler){
-        $this->map('POST', $urlPattern, $handler);
-    }
+                for($i = 0; $i < count($matches); $i++){
+                    $matches[$i] = $matches[$i][0];
+                }
 
-    /**
-     * Creates a new PUT rest request Route.
-     * @param  string $urlPattern  Router link pattern
-     * @param  [type] $handler     Route operation handler
-     * @return [type]             [description]
-     */
-    public function put(string $urlPattern, $handler){
-        $this->map('PUT', $urlPattern, $handler);
-    }
+                if(count($matches) == $controllerMeta['numArgs']){
 
-    /**
-     * Creates a new DELETE rest request Route.
-     * @param  string $urlPattern  Router link pattern
-     * @param  [type] $handler     Route operation handler
-     * @return [type]             [description]
-     */
-    public function delete(string $urlPattern, $handler){
-        $this->map('DELETE', $urlPattern, $handler);
-    }
+                    for($i = 0; $i < $controllerMeta['numArgs']; $i++){
+                        
+                        switch($controllerMeta['argTypes'][$i]){
+                            case 'int':
+                                $matches[$i] = strval($matches[$i]);
+                        }
 
-    /**
-     * Creates all type of available request Route with provided parameters.
-     * @param  string $urlPattern  Router link pattern
-     * @param  [type] $handler     Route operation handler
-     * @return [type]             [description]
-     */
-    public function any(string $urlPattern, $handler){
-        $this->get(   $urlPattern, $handler);
-        $this->post(  $urlPattern, $handler);
-        $this->put(   $urlPattern, $handler);
-        $this->delete($urlPattern, $handler);
-    }
+                    }
+                    
+                }
 
-    public function getRoutes($verb = null) : Iterable {
-
-        $routeList = null;
-
-        if($verb){
-            if(!$this->isHttpVerbAvailable($verb)){
-                throw new \InvalidArgumentException("Given HTTP Method/Verb \"{$verb}\" is unknown or unavailable.");
+                return $ref->invokeArgs(new $controller, $matches);
             }
 
-            $routeList = $this->routes->get(strtoupper($verb));
-        }
-        else {
-            $routeList = $this->routes;
         }
 
-        return clone $routeList;
+    }
+    
+    public function buildRouter($controllers){
+
+        $routeHandlers = array();
+    
+        foreach($controllers as $controller){
+            $routes = $this->getControllerRoutes($controller);
+    
+            foreach($routes as $method => $patterns){
+    
+                if(array_key_exists($method, $routeHandlers)) {
+                    foreach($patterns as $pattern => $handler) {
+                        
+                        if(array_key_exists($pattern, $routeHandlers[$method])){
+                            error_log("[WARNING]: [{$method} {$pattern}] Handler Overwriten!");
+                        }
+                        
+                        $routeHandlers[$method][$pattern] = $handler;
+                        
+                    }
+                }
+                else {
+                    $routeHandlers[$method] = $patterns;
+                }
+    
+            }
+    
+        }
+        
+        $this->routes = $routeHandlers;
+    }
+
+    public function getRoutes() : array {
+        return $this->routes;
+    }
+
+    private function getControllerRoutes($controller){
+    
+        $reflect = new ReflectionClass($controller);
+    
+        $objPath = $reflect->getName();
+        $controller = new $objPath;
+        
+        $router = [];
+    
+        foreach($reflect->getMethods() as $method){
+
+            $router = $this->buildControllerMetadata($objPath, $method, $router, Route::class);
+            $router = $this->buildControllerMetadata($objPath, $method, $router, Get::class);
+            $router = $this->buildControllerMetadata($objPath, $method, $router, Put::class);
+            $router = $this->buildControllerMetadata($objPath, $method, $router, Post::class);
+            $router = $this->buildControllerMetadata($objPath, $method, $router, Delete::class);
+        }
+        
+        return $router;
+    }
+
+    private function buildControllerMetadata($objPath, $method, $router, string $class) : array {
+        foreach($method->getAttributes($class) as $attr){
+            $route = $attr->newInstance();
+
+            $params = $method->getParameters();
+            $paramsType = [];
+
+            foreach($params as $param){
+
+                $type = $param->getType();
+
+                $paramsType[] .= ($type) ? $type->getName() : 'dynamic';
+            }
+
+            $pattern = $this->baseUri . $route->getUrlPattern();
+
+            $router[$route->getVerb()][$pattern] = [
+                'handler'  => $objPath . '@' . $method->name,
+                'numArgs'  => $method->getNumberOfRequiredParameters(),
+                'argTypes' => $paramsType
+            ];
+        }
+
+        return $router;
     }
 
 }
